@@ -28,8 +28,9 @@ jobs:
       - name: Smoke test (uv install wheel, stdio ping replies ok)
         run: |
           uv tool install --force dist/*.whl
+          BIN="$(uv tool dir)/pentool-mcp-server/bin/pentool-mcp-server"
           printf '{"jsonrpc":"2.0","id":1,"method":"ping"}\n' | \
-            pentool-mcp-server | grep -q '"status":"ok"'
+            "$BIN" | grep -q '"status":"ok"'
 
       - name: Publish to PyPI
         env:

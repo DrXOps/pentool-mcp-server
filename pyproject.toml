@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pentool-mcp-server"
+version = "0.1.0"
+description = "MCP (stdio JSON-RPC) server for Pentool AI — installs as a standalone package"
+authors = [
+    {name = "Pentool Team", email = "dev@pentool.pro"}
+]
+readme = "README.md"
+license = {text = "AGPL-3.0"}
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+
+dependencies = [
+    # Намеренно минимальные — сервер должен работать без тяжёлой LLM-рамки.
+    # Реальная генерация (llama-cpp) подключается опционально, чтобы health
+    # и stdio-протокол работали сразу после установки.
+]
+
+[project.scripts]
+pentool-mcp-server = "pentool_mcp_server.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/DrXOps/pentool-mcp-server"
+Repository = "https://github.com/DrXOps/pentool-mcp-server"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pentool_mcp_server*"]

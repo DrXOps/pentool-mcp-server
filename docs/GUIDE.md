@@ -11,16 +11,19 @@ stdin → stdout, без сети и без портов. Используетс
 
 ## Установка
 
-### Однострочник (PyPI)
+Установка через **uv** (рекомендуется) — изолированное окружение, как у самого
+Pentool.
+
+### Однострочник
 
 ```bash
-pip install pentool-mcp-server        # или: uv tool install / pipx install
+uv tool install pentool-mcp-server
 ```
 
-### Вместе с Pentool
+### Вместе с Pentool (AI-extra)
 
 ```bash
-pip install "pentool[ai]"             # MCP-сервер + AI-extra
+uv tool install "pentool[ai]"         # MCP-сервер + AI-extra
 ```
 
 ### Из исходников (это репо)
@@ -28,7 +31,7 @@ pip install "pentool[ai]"             # MCP-сервер + AI-extra
 ```bash
 git clone https://github.com/DrXOps/pentool-mcp-server.git
 cd pentool-mcp-server
-uv tool install .                     # или: pip install .
+uv tool install .                     # или: uvx --from . pentool-mcp-server
 ```
 
 ## Запуск

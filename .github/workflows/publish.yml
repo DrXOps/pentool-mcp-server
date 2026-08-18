@@ -25,12 +25,11 @@ jobs:
       - name: Check package
         run: uvx twine check dist/*
 
-      - name: Smoke test (uv install wheel, stdio ping replies ok)
+      - name: Smoke test (run wheel via uv, stdio ping replies ok)
         run: |
-          uv tool install --force dist/*.whl
-          BIN="$(uv tool dir)/pentool-mcp-server/bin/pentool-mcp-server"
           printf '{"jsonrpc":"2.0","id":1,"method":"ping"}\n' | \
-            "$BIN" | grep -q '"status":"ok"'
+            uv tool run --from dist/*.whl pentool-mcp-server | \
+            grep -q '"status":"ok"'
 
       - name: Publish to PyPI
         env:

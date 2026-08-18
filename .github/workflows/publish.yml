@@ -26,15 +26,7 @@ jobs:
         run: uvx twine check dist/*
 
       - name: Smoke test (install wheel via uv, protocol dispatch works)
-        run: |
-          uv tool run --from dist/*.whl python -c '
-            from pentool_mcp_server.__main__ import _handle_request
-            p = _handle_request({"jsonrpc":"2.0","id":1,"method":"ping"})
-            assert p["result"]["status"] == "ok", p
-            t = _handle_request({"jsonrpc":"2.0","id":2,"method":"tools/list"})
-            assert len(t["result"]["tools"]) >= 3, t
-            print("smoke ok")
-          '
+        run: uv tool run --from dist/*.whl python -c "from pentool_mcp_server.__main__ import _handle_request as h; p=h({'jsonrpc':'2.0','id':1,'method':'ping'}); assert p['result']['status']=='ok', p; t=h({'jsonrpc':'2.0','id':2,'method':'tools/list'}); assert len(t['result']['tools'])>=3, t; print('smoke ok')"
 
       - name: Publish to PyPI
         env:

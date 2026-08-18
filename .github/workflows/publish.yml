@@ -7,10 +7,6 @@ on:
 
 permissions:
   contents: read
-  # Trusted publishing (OIDC) — grants PyPI a short-lived token with no
-  # secret required. Configure once on PyPI: "Add publisher" for this repo
-  # (github.com/DrXOps/pentool-mcp-server) on the `main` branch.
-  id-token: write
 
 jobs:
   publish:
@@ -36,17 +32,7 @@ jobs:
           printf '{"jsonrpc":"2.0","id":1,"method":"ping"}\n' | \
             /tmp/smoke-venv/bin/pentool-mcp-server | grep -q '"status":"ok"'
 
-      # Publish with trusted publishing when available, else fall back to the
-      # classic token in secrets.
-      - name: Publish to PyPI (trusted publishing)
-        id: publish_oidc
-        if: github.event_name == 'push'
-        run: uv publish --publish-url https://upload.pypi.org/legacy/
-        continue-on-error: true
-
-      - name: Publish to PyPI (token fallback)
-        if: steps.publish_oidc.outcome == 'failure'
+      - name: Publish to PyPI
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: uvx twine upload dist/*
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN_FULL }}
+        run: uv publish --publish-url https://upload.pypi.org/legacy/

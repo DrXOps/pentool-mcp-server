@@ -19,7 +19,7 @@ import json
 import sys
 from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = ["run_stdio_server", "main"]
 
 
@@ -27,24 +27,40 @@ __all__ = ["run_stdio_server", "main"]
 
 TOOLS: list[dict[str, Any]] = [
     {
-        "name": "generate",
-        "description": "Сгенерировать ответ LLM по задаче. payload — строка "
-                       "запроса (данные цели), model — путь к GGUF-файлу "
-                       "модели (необязательно). При отсутствии модели вернёт "
-                       "ошибку setup required.",
+        "name": "generate_payload",
+        "description": "Сгенерировать ответ LLM по задаче. Принимает системный "
+                       "промпт и контекст от клиента (pentool MCPBackend). "
+                       "Вернёт структуру с массивом под ключом items.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "task": {"type": "string", "description": "Имя задачи (напр. choose_checks, crawl_endpoints)"},
-                "payload": {"type": "string", "description": "Данные цели / контекст (JSON-строка)"},
-                "model": {"type": "string", "description": "Путь к GGUF-файлу модели"},
+                "task": {"type": "string", "description": "Имя задачи (напр. crawl_endpoints, choose_checks)"},
+                "system_prompt": {"type": "string", "description": "Системный промпт задачи"},
+                "max_tokens": {"type": "integer", "description": "Макс. токенов ответа"},
+                "temperature": {"type": "number", "description": "Температура генерации"},
+                "context": {"type": "object", "description": "Данные цели / контекст"},
+                "model": {"type": "string", "description": "Путь к GGUF-файлу модели (необязательно)"},
+            },
+            "required": ["task", "system_prompt"],
+        },
+    },
+    {
+        "name": "generate",
+        "description": "Алиас для generate_payload (обратная совместимость), "
+                       "принимает payload-строку.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string"},
+                "payload": {"type": "string"},
+                "model": {"type": "string"},
             },
             "required": ["task", "payload"],
         },
     },
     {
         "name": "health",
-        "description": "Проверка готовности: вернёт статус, установлена ли модель.",
+        "description": "Проверка готовности: вернёт статус, установлена ли модель и llama-cpp.",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
@@ -105,13 +121,26 @@ def _handle_ping(req: dict) -> dict:
     }
 
 
-async def _run_generate(task: str, payload: str, model: str | None) -> dict | None:
+async def _run_generate(
+    task: str,
+    system_prompt: str | None,
+    context: dict[str, Any] | None,
+    max_tokens: int,
+    temperature: float,
+    model: str | None,
+) -> dict | None:
     """Вызвать LLM-модель для задачи. Ленивый импорт model.py.
 
     Возвращает dict ответа или None, если модель недоступна.
     """
-    from pentool_mcp_server import model
-    return await model.generate(task, payload, model or _STATE.get("model"))
+    # Импортируем как _llm_model, чтобы не затенять параметр `model` (путь к
+    # файлу): иначе `from ... import model` внутри функции перекрывал бы
+    # строку-путь модулем, и llama-cpp получал бы "path ... not module".
+    from pentool_mcp_server import model as _llm_model
+    return await _llm_model.generate(
+        task, system_prompt, context, max_tokens, temperature,
+        model or _STATE.get("model"),
+    )
 
 
 def _handle_tools_call(req: dict) -> dict:
@@ -121,7 +150,13 @@ def _handle_tools_call(req: dict) -> dict:
 
     if name == "health":
         model_path = _STATE.get("model") or _default_model_path()
-        ready = bool(model_path)
+        llama_ok = False
+        try:
+            from pentool_mcp_server import model as _m
+            llama_ok = _m.is_llama_available()
+        except Exception:  # noqa: BLE001
+            llama_ok = False
+        ready = bool(model_path) and llama_ok
         return {
             "jsonrpc": "2.0",
             "id": req.get("id", 1),
@@ -130,7 +165,8 @@ def _handle_tools_call(req: dict) -> dict:
                     "type": "text",
                     "text": json.dumps({
                         "ok": ready,
-                        "model_present": ready,
+                        "model_present": bool(model_path),
+                        "llama_cpp_available": llama_ok,
                         "model": model_path or None,
                         "setup_required": not ready,
                     }, ensure_ascii=False),
@@ -148,9 +184,7 @@ def _handle_tools_call(req: dict) -> dict:
             "result": {"content": [{"type": "text", "text": "configured"}]},
         }
 
-    if name == "generate":
-        task = args.get("task", "")
-        payload = args.get("payload", "")
+    if name in ("generate", "generate_payload"):
         model = args.get("model") or _STATE.get("model") or _default_model_path()
         if not model:
             return {
@@ -161,14 +195,31 @@ def _handle_tools_call(req: dict) -> dict:
                     "message": "Model not installed. Run: pentool ai setup",
                 },
             }
+        if name == "generate_payload":
+            task = args.get("task", "")
+            system_prompt = args.get("system_prompt")
+            context = args.get("context")
+            max_tokens = int(args.get("max_tokens") or 1024)
+            temperature = float(args.get("temperature") or 0.3)
+        else:
+            # Легаси "generate": payload-строка — парсим как context.
+            task = args.get("task", "")
+            system_prompt = None
+            payload = args.get("payload", "")
+            try:
+                context = json.loads(payload) if payload else {}
+            except Exception:  # noqa: BLE001
+                context = {"text": payload}
+            max_tokens = 1024
+            temperature = 0.3
         try:
-            loop = sys.modules.get("asyncio")
             import asyncio
             if asyncio.get_event_loop().is_running():
-                # Уже в asyncio-контексте — это не должно случиться в stdio-цикле
-                result = _run_generate(task, payload, model)
+                result = _run_generate(task, system_prompt, context, max_tokens, temperature, model)
             else:
-                result = asyncio.run(_run_generate(task, payload, model))
+                result = asyncio.run(
+                    _run_generate(task, system_prompt, context, max_tokens, temperature, model)
+                )
         except Exception as exc:  # noqa: BLE001
             return {
                 "jsonrpc": "2.0",

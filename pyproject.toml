@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pentool-mcp-server"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP (stdio JSON-RPC) server for Pentool AI — local LLM assistant for pentest"
 readme = "README.md"
 license = {text = "AGPL-3.0"}
@@ -32,6 +32,13 @@ dependencies = [
     # Намеренно минимальные — сервер должен работать без тяжёлой LLM-рамки.
     # Реальная генерация (llama-cpp) подключается опционально, чтобы health
     # и stdio-протокол работали сразу после установки.
+]
+
+[project.optional-dependencies]
+llm = [
+    # Движок генерации. Тяжёлая зависимость, подключается отдельно:
+    #   uv tool install pentool-mcp-server --with "pentool-mcp-server[llm]"
+    "llama-cpp-python>=0.3.0",
 ]
 
 [project.scripts]

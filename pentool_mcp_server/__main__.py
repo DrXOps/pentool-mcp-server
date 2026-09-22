@@ -214,12 +214,10 @@ def _handle_tools_call(req: dict) -> dict:
             temperature = 0.3
         try:
             import asyncio
-            if asyncio.get_event_loop().is_running():
-                result = _run_generate(task, system_prompt, context, max_tokens, temperature, model)
-            else:
-                result = asyncio.run(
-                    _run_generate(task, system_prompt, context, max_tokens, temperature, model)
-                )
+            result = _run_generate(task, system_prompt, context, max_tokens, temperature, model)
+            if hasattr(result, "__await__"):
+                loop = asyncio.get_event_loop()
+                result = loop.run_until_complete(result)
         except Exception as exc:  # noqa: BLE001
             return {
                 "jsonrpc": "2.0",
@@ -285,7 +283,18 @@ async def _amain() -> None:
 
 
 def run_stdio_server() -> None:
-    """Запустить сервер в синхронном stdio-цикле (без участия LLM)."""
+    """Запустить сервер в синхронном stdio-цикле.
+
+    Создаёт один event loop на всё время работы и переиспользует его для всех
+    вызовов tools/call generate — asyncio.run() закрывает loop после завершения,
+    а повторный asyncio.run() падает с "no current event loop".
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
+
     for line in sys.stdin:
         line = line.strip()
         if not line:

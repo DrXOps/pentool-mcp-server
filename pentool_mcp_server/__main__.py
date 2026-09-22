@@ -15,6 +15,7 @@ MCP-протокол). Предоставляет инструменты:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from typing import Any

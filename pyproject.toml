@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pentool-mcp-server"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP (stdio JSON-RPC) server for Pentool AI — local LLM assistant for pentest"
 readme = "README.md"
 license = {text = "AGPL-3.0"}

@@ -20,7 +20,7 @@ import json
 import sys
 from typing import Any
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __all__ = ["run_stdio_server", "main"]
 
 

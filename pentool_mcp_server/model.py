@@ -50,9 +50,9 @@ def _get_llm(model_path: str):
     if path in _LOADED:
         return _LOADED[path]
     from llama_cpp import Llama
-    # LFM2.5-350M — лёгкая edge-модель; 8K контекста хватает для задач
-    # payload/endpoint и помещается в RAM даже на слабой машине.
-    llm = Llama(model_path=path, n_ctx=8192, verbose=False)
+    # LFM2.5-350M-heretic supports up to 131072 tokens context. 128K
+    # fits in < 1 GB RAM at Q8_0.
+    llm = Llama(model_path=path, n_ctx=131072, verbose=False)
     _LOADED[path] = llm
     return llm
 
